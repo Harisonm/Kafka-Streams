@@ -55,6 +55,7 @@ object Main extends PlayJsonSupport {
       .mapValues(value => Json.parse(value))
 
     builder.build()
+    //D
   }
   def routes(): Route = {
     concat(
@@ -69,10 +70,10 @@ object Main extends PlayJsonSupport {
         info : String => {
           get{
             info match {
-              case "best" =>
+              case "score" =>
                 complete(info)
 
-              case "worst" =>
+              case "views" =>
                 complete(info)
 
             }
@@ -83,10 +84,10 @@ object Main extends PlayJsonSupport {
         info : String => {
           get{
             info match {
-              case "best" =>
+              case "score" =>
                 complete(info)
 
-              case "worst" =>
+              case "views" =>
                 complete(info)
 
             }
