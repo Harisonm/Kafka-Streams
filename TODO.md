@@ -123,7 +123,7 @@ Il n'est pas demandé que l'application implémentée pour ces besoins gère le 
 Toutefois, un effort fait en ce sens pourra compter comme bonus.
 
 ## Documentation
-- Kafka Stream DSL documentation: https://docs.confluent.io/current/streams/developer-guide/dsl-api.html
+- Kafka Stream DSL documentation: httpgis://docs.confluent.io/current/streams/developer-guide/dsl-api.html
 - Kafka Stream Scala doc: https://kafka.apache.org/20/documentation/streams/developer-guide/dsl-api.html#scala-dsl
 - Kafka Stream Configuration Documentation:
 https://docs.confluent.io/current/streams/developer-guide/config-streams.html

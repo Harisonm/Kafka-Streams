@@ -8,7 +8,7 @@ import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.stream.ActorMaterializer
 import com.typesafe.config.{Config, ConfigFactory}
 import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
-import org.esgi.project.models.visits.Responses
+import org.esgi.project.models.visits.Response
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -27,14 +27,14 @@ object Main extends PlayJsonSupport {
         (id: String) =>
           get { context: RequestContext =>
             context.complete(
-              Responses(id = id, message = s"Hi, here's your id: $id")
+              Response(id = id, message = s"Hi, here's your id: $id")
             )
           }
       },
       path("some" / "other" / "route") {
         get {
           complete {
-            Responses(id = "foo", message = "Another silly message")
+            Response(id = "foo", message = "Another silly message")
           }
         }
       }

@@ -8,5 +8,5 @@ case class Response(
                    )
 
 object Response {
-    implicit val format = Json.format[Responses]
+    implicit val format = Json.format[Response]
 }
