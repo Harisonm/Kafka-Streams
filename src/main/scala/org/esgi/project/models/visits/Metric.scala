@@ -1,4 +1,4 @@
-package org.esgi.project.models
+package org.esgi.project.models.visits
 
 import play.api.libs.json.Json
 

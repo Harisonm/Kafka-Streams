@@ -12,12 +12,13 @@ import akka.stream.ActorMaterializer
 import com.typesafe.config.{Config, ConfigFactory}
 import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
 import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.esgi.project.models.Response
 import org.apache.kafka.clients.producer._
 import org.slf4j.{Logger, LoggerFactory}
 import org.apache.kafka.common.serialization.Serde
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.StreamsConfig
+import org.esgi.project.models.visits.Responses
+
 import scala.concurrent.ExecutionContextExecutor
 
 object ConsumerProducerApp extends PlayJsonSupport {
