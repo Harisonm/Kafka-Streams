@@ -176,7 +176,7 @@
                                 </transformer>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.esgi.project.Main</mainClass>
+                                    <mainClass>org.esgi.project.ConsumerProducerApp</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

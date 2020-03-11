@@ -20,7 +20,7 @@ import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.StreamsConfig
 import scala.concurrent.ExecutionContextExecutor
 
-object Main extends PlayJsonSupport {
+object ConsumerProducerApp extends PlayJsonSupport {
   implicit val system: ActorSystem = ActorSystem.create("this-system")
   implicit val materializer: ActorMaterializer = ActorMaterializer.create(system)
 
@@ -79,7 +79,7 @@ object Main extends PlayJsonSupport {
 
   def main(args: Array[String]) {
     //var m_test = Map("Ayushi" -> 0, "Megha" -> 1)
-    consumeFromKafka("visits")
+    consumeFromKafka("metrics")
     //writeToKafka("mani")
   }
 }
