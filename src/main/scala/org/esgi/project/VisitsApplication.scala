@@ -15,16 +15,17 @@ import org.apache.kafka.streams.scala.ImplicitConversions._
 import org.apache.kafka.streams.scala._
 import org.apache.kafka.streams.scala.kstream._
 import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
-import org.esgi.project.models.{Metric, Visit, VisitCount, VisitWithLatency}
+import org.esgi.project.models.visits.{Visit, VisitCount, VisitWithLatency}
 import org.slf4j.{Logger, LoggerFactory}
 import com.typesafe.config.{Config, ConfigFactory}
 import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
+import org.esgi.project.models.visits.{Metric, Visit, VisitCount, VisitWithLatency}
 import play.api.libs.json.{JsValue, Json}
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
-object StreamApplication extends PlayJsonSupport {
+object VisitsApplication extends PlayJsonSupport {
   implicit val system: ActorSystem = ActorSystem.create("this-system")
   implicit val materializer: ActorMaterializer = ActorMaterializer.create(system)
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher

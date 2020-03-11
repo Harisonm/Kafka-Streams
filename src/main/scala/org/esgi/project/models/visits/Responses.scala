@@ -2,11 +2,11 @@ package org.esgi.project.models.visits
 
 import play.api.libs.json.Json
 
-case class Responses(
+case class Response(
                        id: String,
                        message: String
                    )
 
-object Responses {
+object Response {
     implicit val format = Json.format[Responses]
 }
