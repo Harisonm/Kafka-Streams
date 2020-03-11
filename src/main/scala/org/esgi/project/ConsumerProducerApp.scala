@@ -17,7 +17,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.apache.kafka.common.serialization.Serde
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.StreamsConfig
-import org.esgi.project.models.visits.Responses
+import org.esgi.project.models.Response
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -80,7 +80,7 @@ object ConsumerProducerApp extends PlayJsonSupport {
 
   def main(args: Array[String]) {
     //var m_test = Map("Ayushi" -> 0, "Megha" -> 1)
-    consumeFromKafka("metrics")
+    consumeFromKafka("likes")
     //writeToKafka("mani")
   }
 }
