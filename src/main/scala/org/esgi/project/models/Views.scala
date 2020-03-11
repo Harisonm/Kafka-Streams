@@ -3,9 +3,9 @@ package org.esgi.project.models
 import play.api.libs.json.Json
 
 case class Views(
-                    id: String,
+                    _id: String,
                     title: String,
-                    views: Int
+                    view_category: String
                 )
 object Views {
     implicit val format = Json.format[Views]
