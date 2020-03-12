@@ -80,7 +80,7 @@ object ConsumerProducerApp extends PlayJsonSupport {
 
   def main(args: Array[String]) {
     //var m_test = Map("Ayushi" -> 0, "Megha" -> 1)
-    consumeFromKafka("likes")
+    consumeFromKafka("views")
     //writeToKafka("mani")
   }
 }

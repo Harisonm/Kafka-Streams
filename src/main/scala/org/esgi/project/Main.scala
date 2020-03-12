@@ -22,12 +22,12 @@ import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
 import org.esgi.project.models.Response
 import org.esgi.project.models.movies.{Likes, Movies, Stats, StatsDetails, ViewCount, Views}
 import play.api.libs.json.{JsValue, Json}
-
+import io.github.azhur.kafkaserdeplayjson.{PlayJsonSupport => azhurPlay}
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 
-object Main extends PlayJsonSupport {
+object Main extends PlayJsonSupport with azhurPlay{
   implicit val system: ActorSystem = ActorSystem.create("this-system")
   implicit val materializer: ActorMaterializer = ActorMaterializer.create(system)
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
@@ -78,17 +78,21 @@ object Main extends PlayJsonSupport {
 
     // Group by Stats
     val moviesTable: KTable[Int, StatsDetails] = groupedMovieById
-      .aggregate(StatsDetails(0,0,0))((_, news, aggValue) => {
-        news.asInstanceOf[Views].view_category match {
+      .aggregate(StatsDetails(0,0,0,0))((_, views, aggValue) => {
+        val viewParsed = views.asOpt[Views].get
+        viewParsed.view_category match {
           case "half" =>
-            StatsDetails(start_only = aggValue.start_only,half = aggValue.half + 1 , full = aggValue.full)
+            StatsDetails(_id =viewParsed._id, start_only = aggValue.start_only,half = aggValue.half + 1 , full = aggValue.full)
           case "full" =>
-            StatsDetails(start_only = aggValue.start_only,half = aggValue.half, full = aggValue.full + 1)
+            StatsDetails(_id =viewParsed._id, start_only = aggValue.start_only,half = aggValue.half, full = aggValue.full + 1)
           case "start_only" =>
-            StatsDetails(start_only = aggValue.start_only + 1,half = aggValue.half, full = aggValue.full)
+            StatsDetails(_id =viewParsed._id, start_only = aggValue.start_only + 1,half = aggValue.half, full = aggValue.full)
         }
       }
-      )(Materialized.as(lastMinuteStoreName).withValueSerde(Serdes.Long))
+      )(Materialized.as(lastMinuteStoreName).withValueSerde(toSerde))
+    println(moviesTable)
+
+    // write it to Kafka
 
 
     builder.build()

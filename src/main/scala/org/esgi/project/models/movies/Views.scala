@@ -1,9 +1,9 @@
-package org.esgi.project.models
+package org.esgi.project.models.movies
 
 import play.api.libs.json.Json
 
 case class Views(
-                    _id: String,
+                    _id: Int,
                     title: String,
                     view_category: String
                 )

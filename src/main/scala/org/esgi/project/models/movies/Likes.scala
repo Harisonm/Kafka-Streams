@@ -1,4 +1,4 @@
-package org.esgi.project.models
+package org.esgi.project.models.movies
 
 import play.api.libs.json.Json
 
