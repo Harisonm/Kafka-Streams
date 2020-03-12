@@ -3,17 +3,17 @@
 Le Product Owner vous demande de lui fournir les informations suivantes
 
 - Nombre de vues par film, catégorisées par type de vue:
-    -  [ ] arrêt en début de film (< 10% du film vu) 
-        -  [ ]  depuis le lancement
-        -  [ ] sur la dernière minute
-        -  [ ] sur les cinq dernières minutes 
-    -  [ ] arrêt en milieu de film (< 90% du film vu)
-        -  [ ] depuis le lancement
-        -  [ ] sur la dernière minute
-        -  [ ] sur les cinq dernières minutes
-    -  [ ] film terminé (> 90% du film vu) depuis le lancement
-        -  [ ] sur la dernière minute
-        -  [ ] sur les cinq dernières minutes
+    -  [x] arrêt en début de film (< 10% du film vu) 
+        -  [x]  depuis le lancement
+        -  [x] sur la dernière minute
+        -  [x] sur les cinq dernières minutes 
+    -  [x] arrêt en milieu de film (< 90% du film vu)
+        -  [x] depuis le lancement
+        -  [x] sur la dernière minute
+        -  [x] sur les cinq dernières minutes
+    -  [x] film terminé (> 90% du film vu) depuis le lancement
+        -  [x] sur la dernière minute
+        -  [x] sur les cinq dernières minutes
 - Top 10
 -  [ ] des films ayant les meilleurs retours (score > 4)
 -  [ ] des films ayant les moins bons retours (score < 2)
