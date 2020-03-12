@@ -5,22 +5,22 @@ import java.util.{Properties, UUID}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.server.Directives.{complete, concat, get, path, _}
 import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.stream.ActorMaterializer
-import org.apache.kafka.streams.kstream.{JoinWindows, Joined, Materialized, Produced, Serialized, TimeWindows, Windowed}
-import org.apache.kafka.streams.state.{QueryableStoreType, QueryableStoreTypes, ReadOnlyKeyValueStore, ReadOnlyWindowStore, WindowStoreIterator}
+import com.typesafe.config.{Config, ConfigFactory}
+import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
+import io.github.azhur.kafkaserdeplayjson.{PlayJsonSupport => azhurPlay}
+import org.apache.kafka.streams.kstream.{Materialized, Serialized, TimeWindows, Windowed}
 import org.apache.kafka.streams.scala.ImplicitConversions._
 import org.apache.kafka.streams.scala._
 import org.apache.kafka.streams.scala.kstream._
-import org.apache.kafka.streams.{KafkaStreams, KeyValue, StreamsConfig, Topology}
-import org.slf4j.{Logger, LoggerFactory}
-import com.typesafe.config.{Config, ConfigFactory}
-import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
+import org.apache.kafka.streams.state.{QueryableStoreTypes, ReadOnlyKeyValueStore, ReadOnlyWindowStore}
+import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
 import org.esgi.project.models._
+import org.esgi.project.utils.PlaySerdes
+import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json.{JsValue, Json}
-import io.github.azhur.kafkaserdeplayjson.{PlayJsonSupport => azhurPlay}
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
@@ -52,8 +52,7 @@ object Main extends PlayJsonSupport with azhurPlay {
 
   def buildProcessingGraph: Topology = {
     import Serdes._
-    import scala.collection.JavaConverters._
-
+    import Main._
 
     val builder: StreamsBuilder = new StreamsBuilder
 
@@ -65,35 +64,13 @@ object Main extends PlayJsonSupport with azhurPlay {
         .groupByKey(Serialized.`with`(Serdes.Integer, PlaySerdes.create))
 
 
-    // window per asked time frames
     val allTimeViews = groupedById
     val oneMinuteWindowedViews = groupedById.windowedBy(TimeWindows.of(1.minute.toMillis).advanceBy(1.second.toMillis))
     val fiveMinutesWindowedViews = groupedById.windowedBy(TimeWindows.of(5.minute.toMillis).advanceBy(1.second.toMillis))
 
-
-    def aggViewCategory(value: JsValue, agg: MoviesDetails): MoviesDetails = {
-      val view = value.asOpt[Views].get
-      MoviesDetails(
-        id = view._id,
-        title = view.title,
-        if( view.view_category == "start_only")  agg.start_only + 1 else agg.start_only,
-        if( view.view_category == "half")  agg.half + 1 else agg.half,
-        if( view.view_category == "full")  agg.full + 1 else agg.full
-      )
-    }
-
-    val allTimeViewsTable: KTable[Int, MoviesDetails] = allTimeViews
-        .aggregate(MoviesDetails(0,"",0,0,0))((_, view, aggView) => aggViewCategory(view, aggView)
-        )(Materialized.as(allTimeStoreName).withValueSerde(toSerde))
-
-    val oneMinuteViewsTable: KTable[Windowed[Int], MoviesDetails] = oneMinuteWindowedViews
-        .aggregate(MoviesDetails(0,"",0,0,0))((_, view, aggView) => aggViewCategory(view, aggView)
-        )(Materialized.as(oneMinuteStoreName).withValueSerde(toSerde))
-
-    val fiveMinuteViewsTable: KTable[Windowed[Int], MoviesDetails] = fiveMinutesWindowedViews
-        .aggregate(MoviesDetails(0,"",0,0,0))((_, view, aggView) => aggViewCategory(view, aggView)
-        )(Materialized.as(fiveMinutesStoreName).withValueSerde(toSerde))
-
+    createStoreFromGroupedStream(allTimeViews, allTimeStoreName)
+    createStoreFromWindowStream(oneMinuteWindowedViews, oneMinuteStoreName)
+    createStoreFromWindowStream(fiveMinutesWindowedViews, fiveMinutesStoreName)
 
     builder.build()
   }
@@ -160,8 +137,32 @@ object Main extends PlayJsonSupport with azhurPlay {
     )
   }
 
+  object Main {
+
+    def createDefaultMovieDetails: MoviesDetails = MoviesDetails(id = 0, title = "", start_only = 0, half = 0, full = 0)
+    def createMovieDetails(value: JsValue, agg: MoviesDetails): MoviesDetails = {
+      val view = value.asOpt[Views].get
+      MoviesDetails(
+        id = view._id,
+        title = view.title,
+        if( view.view_category == "start_only")  agg.start_only + 1 else agg.start_only,
+        if( view.view_category == "half")  agg.half + 1 else agg.half,
+        if( view.view_category == "full")  agg.full + 1 else agg.full
+      )
+    }
+    def createStoreFromGroupedStream(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, MoviesDetails] = {
+      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
+      )(Materialized.as(storeName).withValueSerde(toSerde))
+    }
+    def createStoreFromWindowStream(table: TimeWindowedKStream[Int, JsValue], storeName: String): KTable[Windowed[Int], MoviesDetails] = {
+      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
+      )(Materialized.as(storeName).withValueSerde(toSerde))
+    }
+  }
+
   def main(args: Array[String]) {
     Http().bindAndHandle(routes(), "0.0.0.0", 8080)
     logger.info(s"App started on 8080")
   }
+
 }

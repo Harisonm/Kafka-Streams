@@ -1,4 +1,4 @@
-package org.esgi.project
+package org.esgi.project.utils
 
 import org.apache.kafka.streams.scala.Serdes
 import play.api.libs.json.{JsValue, Json}
@@ -11,4 +11,3 @@ object PlaySerdes {
     )
   }
 }
-
