@@ -17,7 +17,6 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.apache.kafka.common.serialization.Serde
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.StreamsConfig
-import org.esgi.project.models.visits.Responses
 
 import scala.concurrent.ExecutionContextExecutor
 
