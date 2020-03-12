@@ -3,10 +3,10 @@ package org.esgi.project.models.movies
 import play.api.libs.json.Json
 
 case class StatsDetails(
-                            _id: Int,
-                           start_only: Long,
-                           half: Long,
-                           full: Long
+                            id: Int,
+                           start_only: Int,
+                           half: Int,
+                           full: Int
                        )
 object StatsDetails {
   implicit val format = Json.format[StatsDetails]

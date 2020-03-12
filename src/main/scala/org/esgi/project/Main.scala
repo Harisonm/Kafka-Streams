@@ -44,7 +44,8 @@ object Main extends PlayJsonSupport with azhurPlay{
 
   // randomize store names
   val randomUuid = UUID.randomUUID.toString
-  val lastMinuteStoreName = s"lastMinuteMoviesStore-$randomUuid"
+  val allTimeStoreName = s"allTimeMoviesStore-$randomUuid"
+  val oneMinuteStoreName = s"oneMinuteMoviesStore-$randomUuid"
   val fiveMinutesStoreName = s"fiveMinuteMoviesStore-$randomUuid"
 
   val streams: KafkaStreams = new KafkaStreams(buildProcessingGraph, props)
@@ -68,32 +69,39 @@ object Main extends PlayJsonSupport with azhurPlay{
         (parsedVisit._id, view)
       }
       .groupByKey(Serialized.`with`(Serdes.Integer, PlaySerdes.create))
-    // window per asked time frames
 
+    // window per asked time frames
+    val allWindowedViews = groupedMovieById
     val oneMinuteWindowedViews = groupedMovieById
       .windowedBy(TimeWindows.of(1.minute.toMillis).advanceBy(1.second.toMillis))
 
     val fiveMinutesWindowedViews = groupedMovieById
       .windowedBy(TimeWindows.of(5.minute.toMillis).advanceBy(1.second.toMillis))
 
-    // Group by Stats
-    val moviesTable: KTable[Int, StatsDetails] = groupedMovieById
-      .aggregate(StatsDetails(0,0,0,0))((_, views, aggValue) => {
-        val viewParsed = views.asOpt[Views].get
-        viewParsed.view_category match {
-          case "half" =>
-            StatsDetails(_id =viewParsed._id, start_only = aggValue.start_only,half = aggValue.half + 1 , full = aggValue.full)
-          case "full" =>
-            StatsDetails(_id =viewParsed._id, start_only = aggValue.start_only,half = aggValue.half, full = aggValue.full + 1)
-          case "start_only" =>
-            StatsDetails(_id =viewParsed._id, start_only = aggValue.start_only + 1,half = aggValue.half, full = aggValue.full)
-        }
+    def aggViewCategory(views: JsValue, agg:StatsDetails):StatsDetails = {
+      val view = views.asOpt[Views].get
+      view.view_category match {
+        case "half" =>
+          StatsDetails(id =view._id, start_only = agg.start_only,half = agg.half + 1 , full = agg.full)
+        case "full" =>
+          StatsDetails(id =view._id, start_only = agg.start_only,half = agg.half, full = agg.full + 1)
+        case "start_only" =>
+          StatsDetails(id =view._id, start_only = agg.start_only + 1,half = agg.half, full = agg.full)
       }
-      )(Materialized.as(lastMinuteStoreName).withValueSerde(toSerde))
-    println(moviesTable)
+    }
 
-    // write it to Kafka
+    // Group by Stats
+    val aggViewsAllTime: KTable[Int, StatsDetails] = allWindowedViews
+      .aggregate(StatsDetails(0,0,0,0))((_, views, aggValue) => aggViewCategory(views,aggValue)
+      )(Materialized.as(allTimeStoreName).withValueSerde(toSerde))
 
+    val aggOneMinute: KTable[Windowed[Int], StatsDetails] = oneMinuteWindowedViews
+      .aggregate(StatsDetails(0,0,0,0))((_, views, aggValue) => aggViewCategory(views,aggValue)
+      )(Materialized.as(oneMinuteStoreName).withValueSerde(toSerde))
+
+    val aggfiveMinute: KTable[Windowed[Int], StatsDetails] = fiveMinutesWindowedViews
+      .aggregate(StatsDetails(0,0,0,0))((_, views, aggValue) => aggViewCategory(views,aggValue)
+      )(Materialized.as(fiveMinutesStoreName).withValueSerde(toSerde))
 
     builder.build()
   }
@@ -101,20 +109,39 @@ object Main extends PlayJsonSupport with azhurPlay{
 
   def routes(): Route = {
     concat(
-      path("some" / "route" / Segment) {
-        (id: String) =>
-          get { context: RequestContext =>
-            context.complete(
-              Response(id = id, message = s"Hi, here's your id: $id")
-            )
-          }
-      },
-      path("movies") {
-        get {
-          complete {
-            Response(id = "foo", message = "Another silly message")
-          }
-        }
+      path("movies" / Segment) {
+        (id : String) =>
+            get {
+
+              // Stats Details
+              val toTime = Instant.now().toEpochMilli
+              val oneMinuteTime = toTime - (60 * 1000)
+              val fiveMinutesTime = toTime - (5 * 60 * 1000)
+
+              val allTimeViewsKVStore: ReadOnlyKeyValueStore[Int, StatsDetails] = streams.store(allTimeStoreName, QueryableStoreTypes.keyValueStore[Int, StatsDetails]())
+              val oneMinuteViewsKVStore: ReadOnlyWindowStore[Int, StatsDetails] = streams.store(oneMinuteStoreName, QueryableStoreTypes.windowStore[Int, StatsDetails]())
+              val fiveMinutesViewKVStore: ReadOnlyWindowStore[Int, StatsDetails] = streams.store(fiveMinutesStoreName, QueryableStoreTypes.windowStore[Int, StatsDetails]())
+
+              val allTimeView: StatsDetails = allTimeViewsKVStore.all().asScala.map(_.value).filter(_.id == id.toInt).next()
+              val oneMinuteView: StatsDetails = oneMinuteViewsKVStore.fetch(id.toInt, oneMinuteTime, toTime).next().value
+              val fiveMinuteView: StatsDetails = fiveMinutesViewKVStore.fetch(id.toInt, fiveMinutesTime, toTime).next().value
+
+              def countView(details: StatsDetails): Int = details.start_only + details.half + details.full
+
+              complete(
+
+                Movies(
+                  _id = id.toInt,
+                  title = "Movie title",
+                  view_count = countView(allTimeView),
+                  stats = Stats(
+                    past = allTimeView,
+                    last_minute = oneMinuteView,
+                    last_five_minutes = fiveMinuteView
+                  )
+                )
+              )
+            }
       },
       path("stats" / "ten" / "best" / Segment) {
         info : String => {

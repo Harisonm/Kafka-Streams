@@ -4,7 +4,7 @@ import play.api.libs.json.Json
 
 case class ViewCount(
                        title: String,
-                       count: Long,
+                       count: Int,
                      )
 object ViewCount {
   implicit val format = Json.format[ViewCount]
