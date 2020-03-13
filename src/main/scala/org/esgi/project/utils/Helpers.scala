@@ -2,11 +2,11 @@ package org.esgi.project.utils
 
 import org.apache.kafka.streams.kstream.{Materialized, Windowed}
 import org.apache.kafka.streams.scala.kstream.{KGroupedStream, KTable, TimeWindowedKStream}
-import org.esgi.project.Main.toSerde
 import org.esgi.project.models.{LikesOut, MoviesDetails, Score, Views, ViewsOut}
 import play.api.libs.json.JsValue
+import io.github.azhur.kafkaserdeplayjson.PlayJsonSupport
 
-object Helpers {
+object Helpers extends PlayJsonSupport{
   def createStoreFromGroupedStreamViewsOut(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, ViewsOut] = {
     table.aggregate(createDefaultViewsOut)((_, view, aggView) => creatViewsOut(view, aggView)
     )(Materialized.as(storeName).withValueSerde(toSerde))

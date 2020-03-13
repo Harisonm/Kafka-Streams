@@ -2,30 +2,29 @@ package org.esgi.project
 
 import java.time.Instant
 import java.util.{Properties, UUID}
-import math.round
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.{complete, concat, get, path, _}
-import akka.http.scaladsl.server.{RequestContext, Route}
+import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.typesafe.config.{Config, ConfigFactory}
 import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
 import io.github.azhur.kafkaserdeplayjson.{PlayJsonSupport => azhurPlay}
-import org.apache.kafka.streams.kstream.{JoinWindows, Joined, Materialized, Serialized, TimeWindows, Windowed}
+import org.apache.kafka.streams.kstream.{JoinWindows, Joined, Serialized, TimeWindows}
 import org.apache.kafka.streams.scala.ImplicitConversions._
 import org.apache.kafka.streams.scala._
 import org.apache.kafka.streams.scala.kstream._
 import org.apache.kafka.streams.state.{QueryableStoreTypes, ReadOnlyKeyValueStore, ReadOnlyWindowStore, WindowStoreIterator}
 import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
 import org.esgi.project.models._
-import org.esgi.project.utils.PlaySerdes
+import org.esgi.project.utils.{Helpers, PlaySerdes}
 import org.slf4j.{Logger, LoggerFactory}
-import org.esgi.project.utils.Helpers
 import play.api.libs.json.{JsValue, Json}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
-import scala.collection.JavaConverters._
 object Main extends PlayJsonSupport with azhurPlay {
 
   implicit val system: ActorSystem = ActorSystem.create("this-system")
@@ -55,8 +54,8 @@ object Main extends PlayJsonSupport with azhurPlay {
   streams.start()
 
   def buildProcessingGraph: Topology = {
-    import Serdes._
     import Helpers._
+    import Serdes._
 
     val builder: StreamsBuilder = new StreamsBuilder
 
