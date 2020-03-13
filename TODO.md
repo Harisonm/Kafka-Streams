@@ -15,13 +15,13 @@ Le Product Owner vous demande de lui fournir les informations suivantes
         -  [x] sur la dernière minute
         -  [x] sur les cinq dernières minutes
 - Top 10
--  [ ] des films ayant les meilleurs retours (score > 4)
--  [ ] des films ayant les moins bons retours (score < 2)
--  [ ] Tip: vous aurez besoin d'une moyenne mobile pour calculer cela depuis le lancement du stream.
+-  [X] des films ayant les meilleurs retours (score > 4)
+-  [X] des films ayant les moins bons retours (score < 2)
+-  [X] Tip: vous aurez besoin d'une moyenne mobile pour calculer cela depuis le lancement du stream.
 
 Tout ceci doit être exposé sur une API REST (format de sortie JSON) ayant le schéma suivant:
 
--  [ ] GET /movies/:id
+-  [X] GET /movies/:id
     - Donne le nombre de vues et leur distribution pour un ID de film donné
 ```json
 {
@@ -48,7 +48,7 @@ Tout ceci doit être exposé sur une API REST (format de sortie JSON) ayant le s
 }
 ```
 
--  [ ] GET /stats/ten/best/views
+-  [X] GET /stats/ten/best/views
     - Donne les 10 meilleurs films de tous les temps selon leurs vues, trié par nombre de vues décroissant
 ```json
 [
@@ -60,7 +60,7 @@ Tout ceci doit être exposé sur une API REST (format de sortie JSON) ayant le s
     "score": 8.1 }
     ]
 ```
--  [ ] GET /stats/ten/best/views
+-  [X] GET /stats/ten/best/views
     - Donne les 10 meilleurs films de tous les temps selon leurs vues, trié par nombre de vues décroissant
 ```json
     [
@@ -78,7 +78,7 @@ Tout ceci doit être exposé sur une API REST (format de sortie JSON) ayant le s
     ]
 ```
 
--  [ ] GET /stats/ten/worst/score
+-  [X] GET /stats/ten/worst/score
     - Donne les 10 pires films de tous les temps selon leur score moyen, trié par score croissant
 ```json
 [
@@ -96,7 +96,7 @@ Tout ceci doit être exposé sur une API REST (format de sortie JSON) ayant le s
 ]
 ```
 
--  [ ] GET /stats/ten/worst/views
+-  [X] GET /stats/ten/worst/views
     - Donne les 10 pires films de tous les temps selon leurs vues, trié par nombre de vues croissant
 ```json
 [
