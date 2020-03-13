@@ -15,12 +15,12 @@ import org.apache.kafka.streams.kstream.{JoinWindows, Joined, Materialized, Seri
 import org.apache.kafka.streams.scala.ImplicitConversions._
 import org.apache.kafka.streams.scala._
 import org.apache.kafka.streams.scala.kstream._
-import org.apache.kafka.streams.state.{QueryableStoreTypes, ReadOnlyKeyValueStore, ReadOnlyWindowStore}
+import org.apache.kafka.streams.state.{QueryableStoreTypes, ReadOnlyKeyValueStore, ReadOnlyWindowStore, WindowStoreIterator}
 import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
 import org.esgi.project.models._
 import org.esgi.project.utils.PlaySerdes
 import org.slf4j.{Logger, LoggerFactory}
-import org.esgi.project.utils.Helper
+import org.esgi.project.utils.Helpers
 import play.api.libs.json.{JsValue, Json}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -56,7 +56,7 @@ object Main extends PlayJsonSupport with azhurPlay {
 
   def buildProcessingGraph: Topology = {
     import Serdes._
-    import Helper._
+    import Helpers._
 
     val builder: StreamsBuilder = new StreamsBuilder
 
@@ -96,7 +96,7 @@ object Main extends PlayJsonSupport with azhurPlay {
   }
 
   def routes(): Route = {
-
+    import Helpers._
 
     concat(
       path("movies" / Segment) {
@@ -112,9 +112,13 @@ object Main extends PlayJsonSupport with azhurPlay {
             val oneMinuteTime = toTime - (60 * 1000)
             val fiveMinutesTime = toTime - (5 * 60 * 1000)
 
-            val allTimeView: MoviesDetails = allTimeViewsKVStore.all().asScala.map(_.value).filter(_.id == id.toInt).next()
-            val oneMinuteView: MoviesDetails = oneMinuteViewsKVStore.fetch(id.toInt, oneMinuteTime, toTime).next().value
-            val fiveMinuteView: MoviesDetails = fiveMinutesViewKVStore.fetch(id.toInt, fiveMinutesTime, toTime).next().value
+            val allTimeViewIterator: Iterator[MoviesDetails] = allTimeViewsKVStore.all().asScala.map(_.value).filter(_.id == id.toInt)
+            val oneMinuteViewIterator: WindowStoreIterator[MoviesDetails] = oneMinuteViewsKVStore.fetch(id.toInt, oneMinuteTime, toTime)
+            val fiveMinuteViewIterator: WindowStoreIterator[MoviesDetails] = fiveMinutesViewKVStore.fetch(id.toInt, fiveMinutesTime, toTime)
+
+            val allTimeView: MoviesDetails = if(allTimeViewIterator.hasNext) allTimeViewIterator.next() else createDefaultMovieDetails
+            val oneMinuteView: MoviesDetails = if(oneMinuteViewIterator.hasNext) oneMinuteViewIterator.next().value else createDefaultMovieDetails
+            val fiveMinuteView: MoviesDetails = if(fiveMinuteViewIterator.hasNext) fiveMinuteViewIterator.next().value else createDefaultMovieDetails
 
             def countView(details: MoviesDetails): Int = details.start_only + details.half + details.full
             def getStatsDetails(moviesDetails: MoviesDetails): StatsDetails = StatsDetails(

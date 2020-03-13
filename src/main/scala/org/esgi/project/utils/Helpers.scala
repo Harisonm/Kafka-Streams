@@ -6,7 +6,7 @@ import org.esgi.project.Main.toSerde
 import org.esgi.project.models.{LikesOut, MoviesDetails, Score, Views, ViewsOut}
 import play.api.libs.json.JsValue
 
-object Helper {
+object Helpers {
   def createStoreFromGroupedStreamViewsOut(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, ViewsOut] = {
     table.aggregate(createDefaultViewsOut)((_, view, aggView) => creatViewsOut(view, aggView)
     )(Materialized.as(storeName).withValueSerde(toSerde))
