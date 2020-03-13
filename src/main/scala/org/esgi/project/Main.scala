@@ -42,6 +42,8 @@ object Main extends PlayJsonSupport with azhurPlay {
 
   // randomize store names
   val randomUuid = UUID.randomUUID.toString
+  val ViewsStoreName = s"ViewsStore-$randomUuid"
+  val LikesStoreName = s"LikesStore-$randomUuid"
   val allTimeStoreName = s"allTimeViewsStore-$randomUuid"
   val oneMinuteStoreName = s"oneMinuteViewsStore-$randomUuid"
   val fiveMinutesStoreName = s"fiveMinuteViewsStore-$randomUuid"
@@ -52,7 +54,6 @@ object Main extends PlayJsonSupport with azhurPlay {
 
   def buildProcessingGraph: Topology = {
     import Serdes._
-    import Main._
 
     val builder: StreamsBuilder = new StreamsBuilder
 
@@ -68,6 +69,43 @@ object Main extends PlayJsonSupport with azhurPlay {
     val oneMinuteWindowedViews = groupedById.windowedBy(TimeWindows.of(1.minute.toMillis).advanceBy(1.second.toMillis))
     val fiveMinutesWindowedViews = groupedById.windowedBy(TimeWindows.of(5.minute.toMillis).advanceBy(1.second.toMillis))
 
+    def creatViewsOut(value: JsValue, agg: ViewsOut): ViewsOut = {
+      val viewParsed = value.asOpt[Views].get
+      ViewsOut(_id = viewParsed._id,viewParsed.title,agg.views +1)
+    }
+
+    def createStoreFromGroupedStreamLikesOut(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, MoviesDetails] = {
+      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
+      )(Materialized.as(storeName).withValueSerde(toSerde))
+    }
+    def createStoreFromGroupedStreamViewsOut(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, ViewsOut] = {
+      table.aggregate(createDefaultViewsOut)((_, view, aggView) => creatViewsOut(view, aggView)
+      )(Materialized.as(storeName).withValueSerde(toSerde))
+    }
+    def createStoreFromGroupedStream(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, MoviesDetails] = {
+      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
+      )(Materialized.as(storeName).withValueSerde(toSerde))
+    }
+    def createStoreFromWindowStream(table: TimeWindowedKStream[Int, JsValue], storeName: String): KTable[Windowed[Int], MoviesDetails] = {
+      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
+      )(Materialized.as(storeName).withValueSerde(toSerde))
+    }
+
+    def createDefaultMovieDetails: MoviesDetails = MoviesDetails(id = 0, title = "", start_only = 0, half = 0, full = 0)
+    def createDefaultViewsOut: ViewsOut = ViewsOut(0,"",0L)
+    def createDefaultLikesOut: LikesOut = LikesOut(0,"",0D)
+    def createMovieDetails(value: JsValue, agg: MoviesDetails): MoviesDetails = {
+      val view = value.asOpt[Views].get
+      MoviesDetails(
+        id = view._id,
+        title = view.title,
+        if( view.view_category == "start_only")  agg.start_only + 1 else agg.start_only,
+        if( view.view_category == "half")  agg.half + 1 else agg.half,
+        if( view.view_category == "full")  agg.full + 1 else agg.full
+      )
+    }
+
+    createStoreFromGroupedStreamViewsOut(allTimeViews, ViewsStoreName)
     createStoreFromGroupedStream(allTimeViews, allTimeStoreName)
     createStoreFromWindowStream(oneMinuteWindowedViews, oneMinuteStoreName)
     createStoreFromWindowStream(fiveMinutesWindowedViews, fiveMinutesStoreName)
@@ -84,13 +122,13 @@ object Main extends PlayJsonSupport with azhurPlay {
           get {
 
             // Stats Details
-            val toTime = Instant.now().toEpochMilli
-            val oneMinuteTime = toTime - (60 * 1000)
-            val fiveMinutesTime = toTime - (5 * 60 * 1000)
-
             val allTimeViewsKVStore: ReadOnlyKeyValueStore[Int, MoviesDetails] = streams.store(allTimeStoreName, QueryableStoreTypes.keyValueStore[Int, MoviesDetails]())
             val oneMinuteViewsKVStore: ReadOnlyWindowStore[Int, MoviesDetails] = streams.store(oneMinuteStoreName, QueryableStoreTypes.windowStore[Int, MoviesDetails]())
             val fiveMinutesViewKVStore: ReadOnlyWindowStore[Int, MoviesDetails] = streams.store(fiveMinutesStoreName, QueryableStoreTypes.windowStore[Int, MoviesDetails]())
+
+            val toTime = Instant.now().toEpochMilli
+            val oneMinuteTime = toTime - (60 * 1000)
+            val fiveMinutesTime = toTime - (5 * 60 * 1000)
 
             val allTimeView: MoviesDetails = allTimeViewsKVStore.all().asScala.map(_.value).filter(_.id == id.toInt).next()
             val oneMinuteView: MoviesDetails = oneMinuteViewsKVStore.fetch(id.toInt, oneMinuteTime, toTime).next().value
@@ -118,51 +156,56 @@ object Main extends PlayJsonSupport with azhurPlay {
             )
           }
       },
-      path("stats" / "ten" / "best" / Segment) {
-        metric: String =>
-          get { context: RequestContext =>
-            context.complete(
-              Response(id = metric, message = s"Hi, here's your metric: $metric")
-            )
+      path("stats"/"ten"/"best"/ Segment) {
+        info : String => {
+          get{
+            info match {
+              case "score" =>
+                val LikesKVStore: ReadOnlyKeyValueStore[Int, LikesOut] = streams.store(LikesStoreName, QueryableStoreTypes.keyValueStore[Int, LikesOut]())
+                complete(info)
+
+              case "views" =>
+                val ViewsKVStore: ReadOnlyKeyValueStore[Int, ViewsOut] = streams.store(ViewsStoreName, QueryableStoreTypes.keyValueStore[Int, ViewsOut]())
+                val availableKeys = ViewsKVStore.all().asScala.map(_.key).toList.distinct
+
+                complete(
+                  availableKeys.map { key =>
+                    val row: ViewsOut = ViewsKVStore.get(key)
+                    ViewsOut(_id = key,title = row.title,views = row.views)
+                  }.sortBy(_.views).reverse.take(10)
+                )
+
+            }
           }
+        }
       },
-      path("stats" / "ten" / "worst" / Segment) {
-        metric: String =>
-          get { context: RequestContext =>
-            context.complete(
-              Response(id = metric, message = s"Hi, here's your metric: $metric")
-            )
+      path("stats"/"ten"/"worst"/ Segment) {
+        info : String => {
+          get{
+            info match {
+              case "score" =>
+                val LikesKVStore: ReadOnlyKeyValueStore[Int, LikesOut] = streams.store(LikesStoreName, QueryableStoreTypes.keyValueStore[Int, LikesOut]())
+                complete(info)
+
+              case "views" =>
+                val ViewsKVStore: ReadOnlyKeyValueStore[Int, ViewsOut] = streams.store(ViewsStoreName, QueryableStoreTypes.keyValueStore[Int, ViewsOut]())
+                val availableKeys = ViewsKVStore.all().asScala.map(_.key).toList.distinct
+
+                complete(
+                  availableKeys.map { key =>
+                    val row: ViewsOut = ViewsKVStore.get(key)
+                    ViewsOut(_id = key,title = row.title,views = row.views)
+                  }.sortBy(_.views).take(10)
+                )
+            }
           }
+        }
       }
     )
-  }
-
-  object Main {
-
-    def createDefaultMovieDetails: MoviesDetails = MoviesDetails(id = 0, title = "", start_only = 0, half = 0, full = 0)
-    def createMovieDetails(value: JsValue, agg: MoviesDetails): MoviesDetails = {
-      val view = value.asOpt[Views].get
-      MoviesDetails(
-        id = view._id,
-        title = view.title,
-        if( view.view_category == "start_only")  agg.start_only + 1 else agg.start_only,
-        if( view.view_category == "half")  agg.half + 1 else agg.half,
-        if( view.view_category == "full")  agg.full + 1 else agg.full
-      )
-    }
-    def createStoreFromGroupedStream(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, MoviesDetails] = {
-      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
-      )(Materialized.as(storeName).withValueSerde(toSerde))
-    }
-    def createStoreFromWindowStream(table: TimeWindowedKStream[Int, JsValue], storeName: String): KTable[Windowed[Int], MoviesDetails] = {
-      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
-      )(Materialized.as(storeName).withValueSerde(toSerde))
-    }
-  }
+}
 
   def main(args: Array[String]) {
     Http().bindAndHandle(routes(), "0.0.0.0", 8080)
     logger.info(s"App started on 8080")
   }
-
 }
