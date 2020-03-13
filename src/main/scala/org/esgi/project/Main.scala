@@ -20,12 +20,14 @@ import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
 import org.esgi.project.models._
 import org.esgi.project.utils.PlaySerdes
 import org.slf4j.{Logger, LoggerFactory}
+import org.esgi.project.utils.Helper
 import play.api.libs.json.{JsValue, Json}
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 object Main extends PlayJsonSupport with azhurPlay {
+
   implicit val system: ActorSystem = ActorSystem.create("this-system")
   implicit val materializer: ActorMaterializer = ActorMaterializer.create(system)
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
@@ -54,6 +56,7 @@ object Main extends PlayJsonSupport with azhurPlay {
 
   def buildProcessingGraph: Topology = {
     import Serdes._
+    import Helper._
 
     val builder: StreamsBuilder = new StreamsBuilder
 
@@ -72,60 +75,17 @@ object Main extends PlayJsonSupport with azhurPlay {
         PlaySerdes.create
       ))
 
-
     val groupedById: KGroupedStream[Int, JsValue] = viewsStream
         .map { (_, view) => (view.as[Views]._id, view) }
         .groupByKey(Serialized.`with`(Serdes.Integer, PlaySerdes.create))
 
     val groupedByIdScore: KGroupedStream[Int, LikesOut] = likesOutStream.groupBy((s,l)=> l._id)
-      //.groupByKey(Serialized.`with`(Serdes.Integer, PlaySerdes.create))
 
     val allTimeViews = groupedById
     val allTimeLikes = groupedByIdScore
     val oneMinuteWindowedViews = groupedById.windowedBy(TimeWindows.of(1.minute.toMillis).advanceBy(1.second.toMillis))
     val fiveMinutesWindowedViews = groupedById.windowedBy(TimeWindows.of(5.minute.toMillis).advanceBy(1.second.toMillis))
 
-
-
-    def createStoreFromGroupedStreamScore(table: KGroupedStream[Int, LikesOut], storeName: String): KTable[Int, Score] = {
-      table.aggregate(createDefaultScore)((_, view, aggView) => creatSocre(view, aggView)
-      )(Materialized.as(storeName).withValueSerde(toSerde))
-    }
-    def createStoreFromGroupedStreamViewsOut(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, ViewsOut] = {
-      table.aggregate(createDefaultViewsOut)((_, view, aggView) => creatViewsOut(view, aggView)
-      )(Materialized.as(storeName).withValueSerde(toSerde))
-    }
-    def createStoreFromGroupedStream(table: KGroupedStream[Int, JsValue], storeName: String): KTable[Int, MoviesDetails] = {
-      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
-      )(Materialized.as(storeName).withValueSerde(toSerde))
-    }
-    def createStoreFromWindowStream(table: TimeWindowedKStream[Int, JsValue], storeName: String): KTable[Windowed[Int], MoviesDetails] = {
-      table.aggregate(createDefaultMovieDetails)((_, view, aggView) => createMovieDetails(view, aggView)
-      )(Materialized.as(storeName).withValueSerde(toSerde))
-    }
-
-    def createDefaultMovieDetails: MoviesDetails = MoviesDetails(id = 0, title = "", start_only = 0, half = 0, full = 0)
-    def createDefaultViewsOut: ViewsOut = ViewsOut(0,"",0L)
-    //def createDefaultLikesOut: LikesOut = LikesOut(0,"",0L)
-    def createDefaultScore: Score = Score(0,"",0L,0)
-    def createMovieDetails(value: JsValue, agg: MoviesDetails): MoviesDetails = {
-      val view = value.asOpt[Views].get
-      MoviesDetails(
-        id = view._id,
-        title = view.title,
-        if( view.view_category == "start_only")  agg.start_only + 1 else agg.start_only,
-        if( view.view_category == "half")  agg.half + 1 else agg.half,
-        if( view.view_category == "full")  agg.full + 1 else agg.full
-      )
-    }
-    def creatViewsOut(value: JsValue, agg: ViewsOut): ViewsOut = {
-      val viewParsed = value.asOpt[Views].get
-      ViewsOut(_id = viewParsed._id,viewParsed.title,agg.views +1)
-    }
-    def creatSocre(value: LikesOut, agg: Score): Score = {
-      //val likesParsed = value.asOpt[LikesOut].get
-      Score(_id = value._id,title= value.title,score_sum = agg.score_sum + value.score , total = agg.total +1)
-    }
     createStoreFromGroupedStreamScore(allTimeLikes,LikesStoreName)
     createStoreFromGroupedStreamViewsOut(allTimeViews, ViewsStoreName)
     createStoreFromGroupedStream(allTimeViews, allTimeStoreName)
